@@ -1,0 +1,17 @@
+{
+  "app": {
+    "nome": "Gerador de Frases",
+    "versao": "2.0.0",
+    "max_historico": 50
+  },
+  "frases": [
+    { "texto": "O sucesso é a soma de pequenos esforços.", "categoria": "motivacao" },
+    { "texto": "A prática leva à evolução.", "categoria": "aprendizado" },
+    { "texto": "Aprender é construir novas possibilidades.", "categoria": "aprendizado" },
+    { "texto": "Grandes projetos começam com pequenas ideias.", "categoria": "inspiracao" },
+    { "texto": "Não tenha medo de começar.", "categoria": "motivacao" },
+    { "texto": "Cada linha de código é um passo à frente.", "categoria": "tecnologia" },
+    { "texto": "A persistência transforma obstáculos em degraus.", "categoria": "motivacao" },
+    { "texto": "Inovação nasce da curiosidade.", "categoria": "inspiracao" }
+  ]
+}

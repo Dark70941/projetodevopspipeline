@@ -1,0 +1,329 @@
+name: Pipeline CI/CD
+
+on:
+  push:
+    branches:
+      - main
+
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: write
+  security-events: write
+
+jobs:
+
+  # ==========================================
+  # 1. BUILD — validação de config com yq
+  # ==========================================
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+
+    steps:
+
+      - name: Baixar código
+        uses: actions/checkout@v4
+
+      - name: Validar configuração YAML com yq
+        id: validar_yaml
+        uses: mikefarah/yq@master
+        with:
+          cmd: yq -e '.app.nome and .app.versao and (.frases | length > 0)' config/app.yml
+
+      - name: Extrair versão da aplicação
+        id: versao
+        uses: mikefarah/yq@master
+        with:
+          cmd: yq -r '.app.versao' config/app.yml
+
+      - name: Gerar config JSON a partir do YAML
+        uses: mikefarah/yq@master
+        with:
+          cmd: yq -o=json config/app.yml > config/app.json
+
+      - name: Exibir informações do build
+        run: |
+          echo "Versão da aplicação: ${{ steps.versao.outputs.result }}"
+          echo "Arquivos validados com sucesso!"
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Instalar dependências
+        run: npm install
+
+      - name: Verificar arquivos essenciais
+        run: |
+          test -f index.html
+          test -f style.css
+          test -f script.js
+          test -f config/app.yml
+          test -f config/app.json
+
+          echo "Build concluído com sucesso!"
+
+  # ==========================================
+  # 2. TEST
+  # ==========================================
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+
+      - name: Baixar código
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Instalar dependências
+        run: npm install
+
+      - name: Executar testes
+        run: npm test
+
+  # ==========================================
+  # 3. QUALITY
+  # ==========================================
+
+  quality:
+    name: Quality
+    runs-on: ubuntu-latest
+    needs: test
+
+    steps:
+
+      - name: Baixar código
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Instalar dependências
+        run: npm install
+
+      - name: Executar análise de qualidade
+        run: npm run lint
+
+  # ==========================================
+  # 4. SECURITY — Gosec + npm audit
+  # ==========================================
+
+  security:
+    name: Security
+    runs-on: ubuntu-latest
+    needs: quality
+
+    env:
+      GO111MODULE: on
+
+    steps:
+
+      - name: Baixar código
+        uses: actions/checkout@v4
+
+      - name: Configurar Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+
+      - name: Executar Gosec Security Checker
+        uses: securego/gosec@master
+        with:
+          args: "-fmt sarif -out results.sarif ./tools/..."
+
+      - name: Enviar relatório SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: results.sarif
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Instalar dependências
+        run: npm install
+
+      - name: Verificar vulnerabilidades npm
+        run: npm audit --audit-level=high
+
+  # ==========================================
+  # 5. PACKAGE
+  # ==========================================
+
+  package:
+    name: Package
+    runs-on: ubuntu-latest
+    needs: security
+
+    steps:
+
+      - name: Baixar código
+        uses: actions/checkout@v4
+
+      - name: Gerar config JSON com yq
+        uses: mikefarah/yq@master
+        with:
+          cmd: yq -o=json config/app.yml > config/app.json
+
+      - name: Criar pacote de distribuição
+        run: |
+          mkdir -p dist
+          cp index.html dist/
+          cp style.css dist/
+          cp script.js dist/
+          mkdir -p dist/config
+          cp config/app.json dist/config/
+
+          echo "Pacote criado com sucesso!"
+
+      - name: Gerar build-info.json
+        run: |
+          VERSAO=$(yq -r '.app.versao' config/app.yml)
+          echo "{\"versao\":\"${VERSAO}\",\"build\":\"${{ github.run_number }}\",\"commit\":\"${{ github.sha }}\",\"data\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}" > dist/build-info.json
+
+      - name: Verificar pacote
+        run: |
+          test -f dist/index.html
+          test -f dist/style.css
+          test -f dist/script.js
+          test -f dist/config/app.json
+          test -f dist/build-info.json
+
+      - name: Enviar artefato
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-dist
+          path: dist/
+
+  # ==========================================
+  # 6. DEPLOY — GitHub Push para gh-pages
+  # ==========================================
+
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-latest
+    needs: package
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+
+      - name: Baixar código
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Baixar artefato do pacote
+        uses: actions/download-artifact@v4
+        with:
+          name: app-dist
+          path: dist/
+
+      - name: Preparar branch gh-pages
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout --orphan gh-pages-temp
+          git rm -rf . || true
+          cp -r dist/* .
+          echo "" > .nojekyll
+          git add .
+          git commit -m "Deploy automático - build #${{ github.run_number }}"
+
+      - name: Publicar no GitHub Pages com GitHub Push
+        uses: ad-m/github-push-action@master
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          branch: gh-pages
+          force: true
+          repository: ${{ github.repository }}
+
+  # ==========================================
+  # 7. SMOKE TEST
+  # ==========================================
+
+  smoke-test:
+    name: Smoke Test
+    runs-on: ubuntu-latest
+    needs: deploy
+    if: always() && needs.deploy.result == 'success'
+
+    steps:
+
+      - name: Baixar código
+        uses: actions/checkout@v4
+
+      - name: Baixar artefato
+        uses: actions/download-artifact@v4
+        with:
+          name: app-dist
+          path: dist/
+
+      - name: Configurar Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+
+      - name: Validar configuração
+        run: go run ./tools/validator dist/config/app.json
+
+      - name: Verificar estrutura da aplicação
+        run: |
+          grep -q "Gerador de Frases" dist/index.html
+          grep -q "historico" dist/script.js
+          echo "Smoke Test aprovado!"
+
+  # ==========================================
+  # 8. RELEASE — atualizar build-info no repositório
+  # ==========================================
+
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    needs: smoke-test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+
+      - name: Baixar código
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Baixar artefato
+        uses: actions/download-artifact@v4
+        with:
+          name: app-dist
+          path: dist/
+
+      - name: Atualizar build-info no repositório
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          cp dist/build-info.json build-info.json
+          git add build-info.json
+          git diff --staged --quiet || git commit -m "chore: atualizar build-info - run #${{ github.run_number }}"
+
+      - name: Enviar build-info com GitHub Push
+        uses: ad-m/github-push-action@master
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          branch: ${{ github.ref }}
+          pull: true

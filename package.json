@@ -1,0 +1,18 @@
+{
+  "name": "gerador-de-frases",
+  "version": "1.0.0",
+  "description": "Aplicação simples para geração de frases aleatórias",
+  "main": "script.js",
+  "scripts": {
+    "test": "jest",
+    "lint": "eslint ."
+  },
+  "jest": {
+    "setupFiles": ["<rootDir>/tests/setup.js"]
+  },
+  "devDependencies": {
+    "eslint": "^9.0.0",
+    "globals": "^16.0.0",
+    "jest": "^30.0.0"
+  }
+}
