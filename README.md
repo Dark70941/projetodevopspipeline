@@ -215,3 +215,18 @@ git push -u origin main
 | GitHub Push (Deploy) | Branch `gh-pages` criada com os arquivos do `dist/` |
 | GitHub Push (Release) | Arquivo `build-info.json` atualizado no repositório |
 | Histórico (App) | Abrir `index.html`, gerar frases e verificar lista |
+
+---
+
+## Relatório completo da pipeline
+
+A documentação detalhada com as 3 Actions do Marketplace, funções, verificação de cada etapa e evidências de execução está em:
+
+**[docs/RELATORIO-PIPELINE.md](docs/RELATORIO-PIPELINE.md)**
+
+### Executar e verificar agora
+
+1. Acesse **[Actions](https://github.com/Dark70941/projetodevopspipeline/actions)** no repositório
+2. Confira a execução mais recente após o push
+3. Para publicar a aplicação: **Settings → Pages → Branch: `gh-pages`**
+4. URL da aplicação: `https://dark70941.github.io/projetodevopspipeline/`
