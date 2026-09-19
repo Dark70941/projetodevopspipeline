@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gerador de Frases</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <main class="container">
+        <header class="cabecalho">
+            <h1 id="titulo-app">Gerador de Frases</h1>
+            <p class="versao" id="versao-app">v2.0.0</p>
+        </header>
+
+        <section class="frase-atual" aria-live="polite">
+            <p id="frase">Clique no botão para gerar uma frase.</p>
+            <span id="categoria" class="categoria" hidden></span>
+        </section>
+
+        <div class="estatisticas">
+            <span id="contador">Frases geradas: 0</span>
+        </div>
+
+        <div class="acoes">
+            <button id="botao" type="button">Nova frase</button>
+            <button id="copiar" type="button" class="secundario">Copiar frase</button>
+            <button id="limpar-historico" type="button" class="secundario">Limpar histórico</button>
+        </div>
+
+        <section class="historico">
+            <h2>Histórico de frases</h2>
+            <p id="historico-vazio" class="historico-vazio">Nenhuma frase gerada ainda.</p>
+            <ul id="lista-historico" class="lista-historico"></ul>
+        </section>
+    </main>
+
+    <script src="script.js"></script>
+</body>
+</html>
